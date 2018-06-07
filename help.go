@@ -19,7 +19,7 @@ func helpShort() {
 Common Options (use -hh to show all):
   -aessiv            Use AES-SIV encryption (with -init)
   -trezor_encrypt_masterkey Encrypt master key through hardware crypto device "Trezor" using AES (with -init)
-  -trezor_encrypt_files Encrypt files throught through hardware crypto device "Trezor" using AES; useful if there're compromized machines (with -init).
+  -trezor_encrypt_files Encrypt files through hardware crypto device "Trezor" using AES; useful if there're compromized machines (with -init).
   -allow_other       Allow other users to access the mount
   -config            Custom path to config file
   -ctlsock           Create control socket at location

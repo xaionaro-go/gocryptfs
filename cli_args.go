@@ -121,7 +121,7 @@ func parseCliOpts() (args argContainer) {
 	flagSet.BoolVar(&args.ro, "ro", false, "Mount the filesystem read-only")
 	flagSet.BoolVar(&args.reverse, "reverse", false, "Reverse mode")
 	flagSet.BoolVar(&args.aessiv, "aessiv", false, "AES-SIV encryption")
-	flagSet.BoolVar(&args.trezorencryptfiles, "trezor_encrypt_files", false, `Encrypt files throught through hardware crypto device "Trezor" using AES (useful if there're compromized machines).`)
+	flagSet.BoolVar(&args.trezorencryptfiles, "trezor_encrypt_files", false, `Encrypt files through hardware crypto device "Trezor" using AES (useful if there're compromized machines).`)
 	flagSet.BoolVar(&args.trezorencryptmasterkey, "trezor_encrypt_masterkey", false, `Encrypt master key through hardware crypto device "Trezor" using AES.`)
 	flagSet.BoolVar(&args.nonempty, "nonempty", false, "Allow mounting over non-empty directories")
 	flagSet.BoolVar(&args.raw64, "raw64", true, "Use unpadded base64 for file names")
