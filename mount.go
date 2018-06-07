@@ -200,6 +200,8 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 		ForceDecode:    args.forcedecode,
 		ForceOwner:     args._forceOwner,
 	}
+
+	plaintextBS := uint64(contentenc.DefaultBS)
 	// confFile is nil when "-zerokey" or "-masterkey" was used
 	if confFile != nil {
 		// Settings from the config file override command line args
@@ -209,6 +211,7 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 		args.trezorkeyname = confFile.TrezorKeyname
 		if confFile.IsFeatureFlagSet(configfile.FlagTrezor) {
 			cryptoBackend = cryptocore.BackendAESTrezor
+			plaintextBS   = 512
 		} else if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
 			cryptoBackend = cryptocore.BackendAESSIV
 		} else if args.reverse {
@@ -226,7 +229,7 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 
 	// Init crypto backend
 	cCore := cryptocore.New(masterkey, cryptoBackend, contentenc.DefaultIVBits, args.hkdf, args.trezorkeyname, args.forcedecode)
-	cEnc := contentenc.New(cCore, contentenc.DefaultBS, args.forcedecode)
+	cEnc := contentenc.New(cCore, plaintextBS, args.forcedecode)
 	nameTransform := nametransform.New(cCore.EMECipher, frontendArgs.LongNames, args.raw64)
 	// After the crypto backend is initialized,
 	// we can purge the master key from memory.

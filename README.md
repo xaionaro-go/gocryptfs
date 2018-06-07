@@ -165,7 +165,7 @@ Notes:
  * ATM, the only supported Trezor device is "Trezor One"
  * There was no security audit of the code quality (related to the trezor
    devices support)
- * Works only on small files, ATM
+ * On reading a file it's required a confirmation per every 512 bytes.
 
 Changelog
 ---------

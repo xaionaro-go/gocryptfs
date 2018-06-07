@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	tagLen = 16
+	authTagLen  = 14
+	bsLenTagLen = 2
 )
 
 type trezor struct {
@@ -112,7 +113,7 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 		}
 		result, msgType = trezor.call(trezor.Client.WordAck(string(word)))
 
-	//case messages.MessageType_MessageType_CipheredKeyValue:
+		//case messages.MessageType_MessageType_CipheredKeyValue:
 		//log.Panic("Not implemented, yet")
 
 	}
@@ -133,11 +134,10 @@ func (trezor *trezor) CheckTrezorConnection() {
 	trezor.Reconnect()
 }
 
-func (trezor *trezor) CipherKeyValue(isToEncrypt bool, keyName string, data, iv []byte, askOnEncode, askOnDecode bool) []byte {
+func (trezor *trezor) CipherKeyValue(isToEncrypt bool, keyName string, data, iv []byte, askOnEncode, askOnDecode bool) ([]byte, messages.MessageType) {
 	path := `m/71'/a6'/3'/45'/96'`
 	result, msgType := trezor.call(trezor.Client.CipherKeyValue(isToEncrypt, keyName, data, tesoro.StringToBIP32Path(path), iv, askOnEncode, askOnDecode))
-	log.Print("msgType == ", msgType)
-	return []byte(result)
+	return []byte(result), messages.MessageType(msgType)
 }
 
 func (cipher trezorCipher) NonceSize() int {
@@ -150,31 +150,41 @@ func (cipher trezorCipher) Overhead() int {
 
 func (cipher trezorCipher) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 	cipher.trezor.CheckTrezorConnection()
-	//outLen := len(plaintext) + tagLen
-	result := cipher.trezor.CipherKeyValue(true, cipher.keyName, append(additionalData[:tagLen], plaintext...), nonce, false, true)
-	/*for len(result) < outLen {
-		result = append(result, byte(0))
-	}*/
-	//dst = append(dst, result[:outLen]...)
+	bsLen := []byte{byte(len(plaintext) & 0xff00 >> 8), byte(len(plaintext) & 0x00ff)}
+	result, _ := cipher.trezor.CipherKeyValue(true, cipher.keyName, append(append(additionalData[:authTagLen], bsLen...), plaintext...), nonce, false, true)
+	log.Print(len(dst), len(result), authTagLen, len(additionalData))
 	dst = append(dst, result...)
 	return dst
 }
 
 func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
 	cipher.trezor.CheckTrezorConnection()
+
 	hexValue := hex.EncodeToString(ciphertext)
-	if len(hexValue) % 2 != 0 {
-		log.Panic(len(hexValue) % 2 != 0)
+	if len(hexValue)%2 != 0 {
+		log.Panic(len(hexValue)%2 != 0)
 	}
-	for len(hexValue) % 32 != 0 {
+	for len(hexValue)%32 != 0 {
 		hexValue += "00"
 	}
-	result := cipher.trezor.CipherKeyValue(false, cipher.keyName, []byte(hexValue), nonce, false, true)
-	log.Print(len(ciphertext), len(result), tagLen, len(additionalData))
-	additionalDataExtracted := result[:tagLen]
-	if string(additionalData[:tagLen]) != string(additionalDataExtracted) {
-		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v", additionalData[:tagLen], additionalDataExtracted, string(result))
+
+	result, msgType := cipher.trezor.CipherKeyValue(false, cipher.keyName, []byte(hexValue), nonce, false, true)
+	log.Print(len(ciphertext), len(result), authTagLen, len(additionalData))
+
+	// extract additional data
+	additionalDataExtracted := result[:authTagLen]
+	result = result[authTagLen:]
+
+	// extract bslen
+	bsLen := result[:bsLenTagLen]
+	result = result[bsLenTagLen:]
+
+	if msgType == messages.MessageType_MessageType_Failure {
+		return dst, fmt.Errorf("trezor: %v", string(result))
 	}
-	dst = append(dst, result[tagLen:]...)
+	if string(additionalData[:authTagLen]) != string(additionalDataExtracted) {
+		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v", additionalData[:authTagLen], additionalDataExtracted, string(result))
+	}
+	dst = append(dst, result[:(bsLen[0]<<8|bsLen[1])]...)
 	return dst, nil
 }
