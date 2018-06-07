@@ -175,7 +175,7 @@ Changelog
 ---------
 
 vNEXT, in progress
-* Add `-trezor` functionality
+* Add `-trezor_*` functionality
 * Add `-masterkey=stdin` functionality
   ([#218](https://github.com/rfjakob/gocryptfs/issues/218))
 * Support extended attributes (xattr) in forward mode
