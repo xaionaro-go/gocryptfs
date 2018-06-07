@@ -163,8 +163,8 @@ gocryptfs supports openhardware cryptographic device
 Notes:
  * Flag `-trezor_encrypt_masterkey` just encrypts/decrypts masterkey using
    trezor so there's a decrypted masterkey in RAM while you're working with
-   the decrypted directory. Therefore I you need to work on compromised
-   computers you have to use flags `-trezor_encrypt_files`.
+   the decrypted directory. Therefore if you need to work on compromised
+   computers then you have to use flags `-trezor_encrypt_files`.
  * If you use flag `-trezor_encrypt_files` then on reading a file it's
    required a confirmation per every 512 bytes.
  * ATM, the only supported Trezor device is "Trezor One"
