@@ -176,6 +176,10 @@ func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) (
 
 	result, msgType := cipher.trezor.CipherKeyValue(false, cipher.keyName, []byte(hexValue), nonce, false, true)
 
+	if msgType == messages.MessageType_MessageType_Failure {
+		return dst, fmt.Errorf("trezor: %v", string(result))
+	}
+
 	// extract additional data
 	additionalDataExtracted := result[:authTagLen]
 	result = result[authTagLen:]
@@ -184,9 +188,6 @@ func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) (
 	bsLen := result[:bsLenTagLen]
 	result = result[bsLenTagLen:]
 
-	if msgType == messages.MessageType_MessageType_Failure {
-		return dst, fmt.Errorf("trezor: %v", string(result))
-	}
 	if string(additionalData[:authTagLen]) != string(additionalDataExtracted) {
 		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v: %v", additionalData[:authTagLen], additionalDataExtracted, string(result))
 	}
