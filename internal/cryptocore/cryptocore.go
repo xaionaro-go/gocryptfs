@@ -6,11 +6,14 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/conejoninja/tesoro/pb/messages"
 
 	"github.com/rfjakob/eme"
 
@@ -57,6 +60,9 @@ type CryptoCore struct {
 	// a mutex :)
 	mutex *sync.Mutex
 
+	// a trezor (to decrypt master key)
+	trezor *trezor
+
 	// remembering arguments passed to New()
 	useHKDF                  bool
 	forceDecode              bool
@@ -92,32 +98,32 @@ func New(key []byte, aeadType AEADTypeEnum, IVBitLen int, useHKDF bool, trezorEn
 		mutex:                  &sync.Mutex{},
 	}
 
-	if trezorEncryptMasterkey {
-		cc.trezorEncryptedMasterKey = key
-	}
-
+	// if it's a Trezor used than we prefer to initialize ciphers lazely to hold
+	// decrypted master key in RAM as little as possible
 	if !trezorEncryptMasterkey {
-		// if it's a Trezor used than we prefer to initialize ciphers lazely to hold
-		// decrypted master key in RAM as little as possible
 		cc.initCiphers(key)
+		return &cc
 	}
 
-	if trezorEncryptMasterkey {
-		// if it's a Trezor used than we prefer to periodically wipe out decrypted
-		// master key from RAM (and reinitialize it on demand)
-		go func() {
-			for {
-				time.Sleep(time.Second * 5)
-				if !cc.AreCiphersInitialized() {
-					continue
-				}
-				if time.Now().Unix()-cc.LastAccessTime.Unix() <= 60 {
-					continue
-				}
-				cc.Wipe()
+	// if it's a Trezor used than we prefer to periodically wipe out decrypted
+	// master key from RAM (and reinitialize it on demand)
+	cc.trezor = NewTrezor()
+	cc.trezorEncryptedMasterKey = key
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			tlog.Debug.Printf("CryptoCore New(): cc.AreCiphersInitialized(): %v", cc.AreCiphersInitialized())
+			if !cc.AreCiphersInitialized() {
+				continue
 			}
-		}()
-	}
+			tlog.Debug.Printf("CryptoCore New(): timediff: %v", time.Now().Unix()-cc.LastAccessTime.Unix())
+			if time.Now().Unix()-cc.LastAccessTime.Unix() <= 60 {
+				continue
+			}
+			cc.Wipe()
+			tlog.Debug.Printf("CryptoCore New(): Wipe()-ed")
+		}
+	}()
 
 	return &cc
 }
@@ -209,8 +215,10 @@ func (cc *CryptoCore) initCiphers(key []byte) {
 			key64[i] = 0
 		}
 	} else if cc.AEADBackend == BackendAESTrezor {
-		trezor := NewTrezor()
-		aeadCipher = trezor.NewAEADCipher(cc.trezorKeyname)
+		if cc.trezor == nil {
+			cc.trezor = NewTrezor()
+		}
+		aeadCipher = cc.trezor.NewAEADCipher(cc.trezorKeyname)
 	} else {
 		log.Panic("unknown backend cipher")
 	}
@@ -219,12 +227,33 @@ func (cc *CryptoCore) initCiphers(key []byte) {
 	cc.aeadCipher = aeadCipher
 }
 
+func (cc CryptoCore) trezorGetDecryptedMasterKey() []byte {
+	cc.trezor.CheckTrezorConnection()
+
+	hexValue := hex.EncodeToString(cc.trezorEncryptedMasterKey)
+	if len(hexValue)%2 != 0 {
+		log.Panic(len(hexValue)%2 != 0)
+	}
+	for len(hexValue)%32 != 0 {
+		hexValue += "00"
+	}
+
+	result, msgType := cc.trezor.CipherKeyValue(false, cc.trezorKeyname, []byte(hexValue), []byte{}, false, true)
+
+	if msgType == messages.MessageType_MessageType_Failure {
+		log.Panicf("trezor: %v", string(result))
+	}
+
+	return result
+}
+
 func (cc *CryptoCore) AEADCipherOpen(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
 	cc.Lock()
 	defer cc.Unlock()
 	if !cc.AreCiphersInitialized() {
-		cc.initCiphers(cc.trezorEncryptedMasterKey)
+		cc.initCiphers(cc.trezorGetDecryptedMasterKey())
 	}
+	cc.LastAccessTime = time.Now()
 	return cc.aeadCipher.Open(dst, nonce, ciphertext, additionalData)
 }
 
@@ -232,8 +261,9 @@ func (cc *CryptoCore) AEADCipherSeal(dst, nonce, ciphertext, additionalData []by
 	cc.Lock()
 	defer cc.Unlock()
 	if !cc.AreCiphersInitialized() {
-		cc.initCiphers(cc.trezorEncryptedMasterKey)
+		cc.initCiphers(cc.trezorGetDecryptedMasterKey())
 	}
+	cc.LastAccessTime = time.Now()
 	return cc.aeadCipher.Seal(dst, nonce, ciphertext, additionalData)
 }
 
@@ -241,8 +271,9 @@ func (cc *CryptoCore) EMECipherEncrypt(tweak []byte, inputData []byte) []byte {
 	cc.Lock()
 	defer cc.Unlock()
 	if !cc.AreCiphersInitialized() {
-		cc.initCiphers(cc.trezorEncryptedMasterKey)
+		cc.initCiphers(cc.trezorGetDecryptedMasterKey())
 	}
+	cc.LastAccessTime = time.Now()
 	return cc.emeCipher.Encrypt(tweak, inputData)
 }
 
@@ -250,8 +281,9 @@ func (cc *CryptoCore) EMECipherDecrypt(tweak []byte, inputData []byte) []byte {
 	cc.Lock()
 	defer cc.Unlock()
 	if !cc.AreCiphersInitialized() {
-		cc.initCiphers(cc.trezorEncryptedMasterKey)
+		cc.initCiphers(cc.trezorGetDecryptedMasterKey())
 	}
+	cc.LastAccessTime = time.Now()
 	return cc.emeCipher.Decrypt(tweak, inputData)
 }
 
