@@ -15,7 +15,7 @@ import (
 
 // NameTransform is used to transform filenames.
 type NameTransform struct {
-	emeCipher  *eme.EMECipher
+	emeCipher  eme.EMECipher
 	longNames  bool
 	DirIVCache dirivcache.DirIVCache
 	// B64 = either base64.URLEncoding or base64.RawURLEncoding, depeding
@@ -24,7 +24,7 @@ type NameTransform struct {
 }
 
 // New returns a new NameTransform instance.
-func New(e *eme.EMECipher, longNames bool, raw64 bool) *NameTransform {
+func New(e eme.EMECipher, longNames bool, raw64 bool) *NameTransform {
 	b64 := base64.URLEncoding
 	if raw64 {
 		b64 = base64.RawURLEncoding

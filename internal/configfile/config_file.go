@@ -12,6 +12,7 @@ import (
 	"github.com/rfjakob/gocryptfs/internal/contentenc"
 	"github.com/rfjakob/gocryptfs/internal/cryptocore"
 	"github.com/rfjakob/gocryptfs/internal/exitcodes"
+	"github.com/rfjakob/gocryptfs/internal/readpassword"
 	"github.com/rfjakob/gocryptfs/internal/tlog"
 )
 import "os"
@@ -69,7 +70,7 @@ func randBytesDevRandom(n int) []byte {
 // CreateConfFile - create a new config with a random key encrypted with
 // "password" and write it to "filename".
 // Uses scrypt with cost parameter logN.
-func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, trezor bool, trezorKeyname string, devrandom bool) error {
+func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, trezorEncryptMasterkey, trezorEncryptFiles bool, trezorKeyname string, devrandom bool) error {
 	var cf ConfFile
 	cf.filename = filename
 	cf.Creator = creator
@@ -89,9 +90,14 @@ func CreateConfFile(filename string, password []byte, plaintextNames bool, logN 
 	if aessiv {
 		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagAESSIV])
 	}
-	if trezor {
-		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezor])
+	if trezorEncryptFiles || trezorEncryptMasterkey {
 		cf.TrezorKeyname = trezorKeyname
+	}
+	if trezorEncryptFiles {
+		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezorEncryptFiles])
+	}
+	if trezorEncryptMasterkey {
+		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezorEncryptMasterkey])
 	}
 	{
 		// Generate new random master key
@@ -120,7 +126,7 @@ func CreateConfFile(filename string, password []byte, plaintextNames bool, logN 
 //
 // If "password" is empty, the config file is read
 // but the key is not decrypted (returns nil in its place).
-func LoadConfFile(filename string, password []byte) ([]byte, *ConfFile, error) {
+func LoadConfFile(filename string, retrieveMasterKey bool, extpass string) ([]byte, *ConfFile, error) {
 	var cf ConfFile
 	cf.filename = filename
 
@@ -177,18 +183,32 @@ func LoadConfFile(filename string, password []byte) ([]byte, *ConfFile, error) {
 
 		return nil, nil, exitcodes.NewErr("Deprecated filesystem", exitcodes.DeprecatedFS)
 	}
-	if len(password) == 0 {
-		// We have validated the config file, but without a password we cannot
-		// decrypt the master key. Return only the parsed config.
+
+	if !retrieveMasterKey {
 		return nil, &cf, nil
 	}
+
+
+	var password []byte
+	if cf.IsFeatureFlagSet(FlagTrezorEncryptMasterkey) {
+		password = []byte(cryptocore.TrezorPassword)
+	} else {
+		password = readpassword.Once(extpass, "")
+		defer func() {
+			for i := range password {
+				password[i] = 0
+			}
+		}()
+	}
+
+	tlog.Info.Println("Decrypting master key")
 
 	// Generate derived key from password
 	scryptHash := cf.ScryptObject.DeriveKey(password)
 
 	// Unlock master key using password-based key
 	useHKDF := cf.IsFeatureFlagSet(FlagHKDF)
-	ce := getKeyEncrypter(scryptHash, useHKDF)
+	ce := getKeyEncrypter(scryptHash, useHKDF, cf.IsFeatureFlagSet(FlagTrezorEncryptMasterkey), cf.TrezorKeyname)
 
 	tlog.Warn.Enabled = false // Silence DecryptBlock() error messages on incorrect password
 	key, err := ce.DecryptBlock(cf.EncryptedKey, 0, nil)
@@ -211,7 +231,7 @@ func (cf *ConfFile) EncryptKey(key []byte, password []byte, logN int) {
 	scryptHash := cf.ScryptObject.DeriveKey(password)
 	// Lock master key using password-based key
 	useHKDF := cf.IsFeatureFlagSet(FlagHKDF)
-	ce := getKeyEncrypter(scryptHash, useHKDF)
+	ce := getKeyEncrypter(scryptHash, useHKDF, cf.IsFeatureFlagSet(FlagTrezorEncryptMasterkey), cf.TrezorKeyname)
 	cf.EncryptedKey = ce.EncryptBlock(key, 0, nil)
 	// Purge scrypt-derived key
 	for i := range scryptHash {
@@ -253,14 +273,18 @@ func (cf *ConfFile) WriteFile() error {
 
 // getKeyEncrypter is a helper function that returns the right ContentEnc
 // instance for the "useHKDF" setting.
-func getKeyEncrypter(scryptHash []byte, useHKDF bool) *contentenc.ContentEnc {
+func getKeyEncrypter(scryptHash []byte, useHKDF bool, trezorEncryptMasterkey bool, trezorKeyname string) *contentenc.ContentEnc {
 	IVLen := 96
 	// gocryptfs v1.2 and older used 96-bit IVs for master key encryption.
 	// v1.3 adds the "HKDF" feature flag, which also enables 128-bit nonces.
 	if useHKDF {
 		IVLen = contentenc.DefaultIVBits
 	}
-	cc := cryptocore.New(scryptHash, cryptocore.BackendGoGCM, IVLen, useHKDF, "", false)
+	backend := cryptocore.BackendGoGCM
+	if trezorEncryptMasterkey {
+		backend = cryptocore.BackendAESTrezor
+	}
+	cc := cryptocore.New(scryptHash, backend, IVLen, useHKDF, false, trezorKeyname, false)
 	ce := contentenc.New(cc, 4096, false)
 	return ce
 }

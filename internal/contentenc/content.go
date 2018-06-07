@@ -183,7 +183,7 @@ func (be *ContentEnc) DecryptBlock(ciphertext []byte, blockNo uint64, fileID []b
 	plaintext := be.pBlockPool.Get()
 	plaintext = plaintext[:0]
 	aData := concatAD(blockNo, fileID)
-	plaintext, err := be.cryptoCore.AEADCipher.Open(plaintext, nonce, ciphertext, aData)
+	plaintext, err := be.cryptoCore.AEADCipherOpen(plaintext, nonce, ciphertext, aData)
 
 	if err != nil {
 		tlog.Debug.Printf("DecryptBlock: %s, len=%d", err.Error(), len(ciphertextOrig))
@@ -289,7 +289,7 @@ func (be *ContentEnc) doEncryptBlock(plaintext []byte, blockNo uint64, fileID []
 	copy(cBlock, nonce)
 	cBlock = cBlock[0:len(nonce)]
 	// Encrypt plaintext and append to nonce
-	ciphertext := be.cryptoCore.AEADCipher.Seal(cBlock, nonce, plaintext, aData)
+	ciphertext := be.cryptoCore.AEADCipherSeal(cBlock, nonce, plaintext, aData)
 	if be.cryptoCore.AEADBackend == cryptocore.BackendAESTrezor {
 		return ciphertext
 	}

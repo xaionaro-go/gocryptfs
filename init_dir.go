@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/rfjakob/gocryptfs/internal/configfile"
+	"github.com/rfjakob/gocryptfs/internal/cryptocore"
 	"github.com/rfjakob/gocryptfs/internal/exitcodes"
 	"github.com/rfjakob/gocryptfs/internal/nametransform"
 	"github.com/rfjakob/gocryptfs/internal/readpassword"
@@ -69,9 +70,14 @@ func initDir(args *argContainer) {
 	}
 	{
 		creator := tlog.ProgramName + " " + GitVersion
-		password := readpassword.Twice(args.extpass)
+		var password []byte
+		if args.trezorencryptmasterkey {
+			password = []byte(cryptocore.TrezorPassword)
+		} else {
+			password = readpassword.Twice(args.extpass)
+		}
 		readpassword.CheckTrailingGarbage()
-		err = configfile.CreateConfFile(args.config, password, args.plaintextnames, args.scryptn, creator, args.aessiv, args.trezor, args.trezorkeyname, args.devrandom)
+		err = configfile.CreateConfFile(args.config, password, args.plaintextnames, args.scryptn, creator, args.aessiv, args.trezorencryptmasterkey, args.trezorencryptfiles, args.trezorkeyname, args.devrandom)
 		if err != nil {
 			tlog.Fatal.Println(err)
 			os.Exit(exitcodes.WriteConf)

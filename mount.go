@@ -182,7 +182,7 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 	if args.aessiv {
 		cryptoBackend = cryptocore.BackendAESSIV
 	}
-	if args.trezor {
+	if args.trezorencryptfiles {
 		cryptoBackend = cryptocore.BackendAESTrezor
 	}
 	// forceOwner implies allow_other, as documented.
@@ -209,9 +209,9 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 		args.raw64 = confFile.IsFeatureFlagSet(configfile.FlagRaw64)
 		args.hkdf = confFile.IsFeatureFlagSet(configfile.FlagHKDF)
 		args.trezorkeyname = confFile.TrezorKeyname
-		if confFile.IsFeatureFlagSet(configfile.FlagTrezor) {
+		if confFile.IsFeatureFlagSet(configfile.FlagTrezorEncryptFiles) {
 			cryptoBackend = cryptocore.BackendAESTrezor
-			plaintextBS   = 512
+			plaintextBS = 512
 		} else if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
 			cryptoBackend = cryptocore.BackendAESSIV
 		} else if args.reverse {
@@ -228,9 +228,9 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 	tlog.Debug.Printf("frontendArgs: %s", string(jsonBytes))
 
 	// Init crypto backend
-	cCore := cryptocore.New(masterkey, cryptoBackend, contentenc.DefaultIVBits, args.hkdf, args.trezorkeyname, args.forcedecode)
+	cCore := cryptocore.New(masterkey, cryptoBackend, contentenc.DefaultIVBits, args.hkdf, args.trezorencryptmasterkey, args.trezorkeyname, args.forcedecode)
 	cEnc := contentenc.New(cCore, plaintextBS, args.forcedecode)
-	nameTransform := nametransform.New(cCore.EMECipher, frontendArgs.LongNames, args.raw64)
+	nameTransform := nametransform.New(cCore.EMECipher(), frontendArgs.LongNames, args.raw64)
 	// After the crypto backend is initialized,
 	// we can purge the master key from memory.
 	for i := range masterkey {

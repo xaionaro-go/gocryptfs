@@ -20,7 +20,7 @@ import (
 type argContainer struct {
 	debug, init, zerokey, fusedebug, openssl, passwd, fg, version,
 	plaintextnames, quiet, nosyslog, wpanic,
-	longnames, allow_other, ro, reverse, aessiv, trezor, nonempty, raw64,
+	longnames, allow_other, ro, reverse, aessiv, trezorencryptfiles, trezorencryptmasterkey, nonempty, raw64,
 	noprealloc, speed, hkdf, serialize_reads, forcedecode, hh, info,
 	sharedstorage, devrandom, fsck bool
 	masterkey, mountpoint, cipherdir, cpuprofile, extpass, trezorkeyname,
@@ -121,7 +121,8 @@ func parseCliOpts() (args argContainer) {
 	flagSet.BoolVar(&args.ro, "ro", false, "Mount the filesystem read-only")
 	flagSet.BoolVar(&args.reverse, "reverse", false, "Reverse mode")
 	flagSet.BoolVar(&args.aessiv, "aessiv", false, "AES-SIV encryption")
-	flagSet.BoolVar(&args.trezor, "trezor", false, `Use AES encryption through hardware crypto device "Trezor"`)
+	flagSet.BoolVar(&args.trezorencryptfiles, "trezor_encrypt_files", false, `Encrypt files throught through hardware crypto device "Trezor" using AES (useful if there're compromized machines).`)
+	flagSet.BoolVar(&args.trezorencryptmasterkey, "trezor_encrypt_masterkey", false, `Encrypt master key through hardware crypto device "Trezor" using AES.`)
 	flagSet.BoolVar(&args.nonempty, "nonempty", false, "Allow mounting over non-empty directories")
 	flagSet.BoolVar(&args.raw64, "raw64", true, "Use unpadded base64 for file names")
 	flagSet.BoolVar(&args.noprealloc, "noprealloc", false, "Disable preallocation before writing")
@@ -140,7 +141,7 @@ func parseCliOpts() (args argContainer) {
 	flagSet.StringVar(&args.memprofile, "memprofile", "", "Write memory profile to specified file")
 	flagSet.StringVar(&args.config, "config", "", "Use specified config file instead of CIPHERDIR/gocryptfs.conf")
 	flagSet.StringVar(&args.extpass, "extpass", "", "Use external program for the password prompt")
-	flagSet.StringVar(&args.trezorkeyname, "trezor_keyname", "", "A name of the key for Trezor")
+	flagSet.StringVar(&args.trezorkeyname, "trezor_keyname", "gocryptfs", "A name of the key for Trezor")
 	flagSet.StringVar(&args.passfile, "passfile", "", "Read password from file")
 	flagSet.StringVar(&args.ko, "ko", "", "Pass additional options directly to the kernel, comma-separated list")
 	flagSet.StringVar(&args.ctlsock, "ctlsock", "", "Create control socket at specified path")
@@ -189,8 +190,8 @@ func parseCliOpts() (args argContainer) {
 			tlog.Fatal.Printf("The -forcedecode and -aessiv flags are incompatible because they use different crypto libs (openssl vs native Go)")
 			os.Exit(exitcodes.Usage)
 		}
-		if args.trezor == true {
-			tlog.Fatal.Printf("The -forcedecode and -trezor flags are incompatible because -trezor enables (undebuggable) hardware encryption")
+		if args.trezorencryptfiles == true {
+			tlog.Fatal.Printf("The -forcedecode and -trezor_encryopt_files flags are incompatible")
 			os.Exit(exitcodes.Usage)
 		}
 		if args.reverse == true {
@@ -209,17 +210,13 @@ func parseCliOpts() (args argContainer) {
 		args.allow_other = false
 		args.ko = "noexec"
 	}
-	if args.trezor == true {
+	if args.trezorencryptfiles == true {
 		if args.aessiv == true {
-			tlog.Fatal.Printf("The -trezor and -aessiv flags are not compatible")
+			tlog.Fatal.Printf("The -trezor_encrypt_files and -aessiv flags are not compatible")
 			os.Exit(exitcodes.Usage)
 		}
 		if args.openssl == true {
-			tlog.Fatal.Printf("The -trezor and -openssl flags are not compatible")
-			os.Exit(exitcodes.Usage)
-		}
-		if args.trezorkeyname == "" {
-			tlog.Fatal.Printf("The -trezor requires -trezor_keyname to be set (please enter a key name for Trezor to -trezor_keyname)")
+			tlog.Fatal.Printf("The -trezor_encrypt_files and -openssl flags are not compatible")
 			os.Exit(exitcodes.Usage)
 		}
 	}

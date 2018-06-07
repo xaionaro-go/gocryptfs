@@ -157,15 +157,20 @@ gocryptfs supports openhardware cryptographic device
 [Trezor One](https://github.com/trezor/trezor-mcu)
 
 	$ mkdir cipher plain
-	$ ./gocryptfs -trezor -trezor_keyname someKeyNameHere -init cipher
+	$ ./gocryptfs -trezor_encrypt_masterkey -init cipher
 	$ ./gocryptfs cipher plain
 
 Notes:
+ * Flag `-trezor_encrypt_masterkey` just encrypts/decrypts masterkey using
+   trezor so there's a decrypted masterkey in RAM while you're working with
+   the decrypted directory. Therefore I you need to work on compromised
+   computers you have to use flags `-trezor_encrypt_files`.
+ * If you use flag `-trezor_encrypt_files` then on reading a file it's
+   required a confirmation per every 512 bytes.
  * ATM, Trezor devices support implementation could be very slow.
  * ATM, the only supported Trezor device is "Trezor One"
  * There was no security audit of the code quality (related to the trezor
    devices support)
- * On reading a file it's required a confirmation per every 512 bytes.
 
 Changelog
 ---------
