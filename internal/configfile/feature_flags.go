@@ -17,6 +17,8 @@ const (
 	FlagLongNames
 	// FlagAESSIV selects an AES-SIV based crypto backend.
 	FlagAESSIV
+	// FlagTrezor selects the hardware AES encrypt backend (through "Trezor")
+	FlagTrezor
 	// FlagRaw64 enables raw (unpadded) base64 encoding for file names
 	FlagRaw64
 	// FlagHKDF enables HKDF-derived keys for use with GCM, EME and SIV
@@ -35,6 +37,7 @@ var knownFlags = map[flagIota]string{
 	FlagGCMIV128:       "GCMIV128",
 	FlagLongNames:      "LongNames",
 	FlagAESSIV:         "AESSIV",
+	FlagTrezor:         "Trezor",
 	FlagRaw64:          "Raw64",
 	FlagHKDF:           "HKDF",
 }

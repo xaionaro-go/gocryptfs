@@ -1,5 +1,5 @@
-// Package cryptocore wraps OpenSSL and Go GCM crypto and provides
-// a nonce generator.
+// Package cryptocore wraps OpenSSL, trezor routines and Go GCM crypto
+// and provides a nonce generator.
 package cryptocore
 
 import (
@@ -34,6 +34,8 @@ const (
 	BackendGoGCM AEADTypeEnum = 4
 	// BackendAESSIV specifies an AESSIV backend.
 	BackendAESSIV AEADTypeEnum = 5
+	// BackendTrezorAES specifies the AES backend using "Trezor" (hardware crypto device)
+	BackendAESTrezor AEADTypeEnum = 6
 )
 
 // CryptoCore is the low level crypto implementation.
@@ -57,7 +59,7 @@ type CryptoCore struct {
 //
 // Note: "key" is either the scrypt hash of the password (when decrypting
 // a config file) or the masterkey (when finally mounting the filesystem).
-func New(key []byte, aeadType AEADTypeEnum, IVBitLen int, useHKDF bool, forceDecode bool) *CryptoCore {
+func New(key []byte, aeadType AEADTypeEnum, IVBitLen int, useHKDF bool, trezorKeyname string, forceDecode bool) *CryptoCore {
 	if len(key) != KeyLen {
 		log.Panic(fmt.Sprintf("Unsupported key length %d", len(key)))
 	}
@@ -132,6 +134,9 @@ func New(key []byte, aeadType AEADTypeEnum, IVBitLen int, useHKDF bool, forceDec
 		for i := range key64 {
 			key64[i] = 0
 		}
+	} else if aeadType == BackendAESTrezor {
+		trezor := NewTrezor()
+		aeadCipher = trezor.NewAEADCipher(trezorKeyname)
 	} else {
 		log.Panic("unknown backend cipher")
 	}

@@ -182,6 +182,9 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 	if args.aessiv {
 		cryptoBackend = cryptocore.BackendAESSIV
 	}
+	if args.trezor {
+		cryptoBackend = cryptocore.BackendAESTrezor
+	}
 	// forceOwner implies allow_other, as documented.
 	// Set this early, so args.allow_other can be relied on below this point.
 	if args._forceOwner != nil {
@@ -203,7 +206,10 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 		frontendArgs.PlaintextNames = confFile.IsFeatureFlagSet(configfile.FlagPlaintextNames)
 		args.raw64 = confFile.IsFeatureFlagSet(configfile.FlagRaw64)
 		args.hkdf = confFile.IsFeatureFlagSet(configfile.FlagHKDF)
-		if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
+		args.trezorkeyname = confFile.TrezorKeyname
+		if confFile.IsFeatureFlagSet(configfile.FlagTrezor) {
+			cryptoBackend = cryptocore.BackendAESTrezor
+		} else if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
 			cryptoBackend = cryptocore.BackendAESSIV
 		} else if args.reverse {
 			tlog.Fatal.Printf("AES-SIV is required by reverse mode, but not enabled in the config file")
@@ -219,7 +225,7 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 	tlog.Debug.Printf("frontendArgs: %s", string(jsonBytes))
 
 	// Init crypto backend
-	cCore := cryptocore.New(masterkey, cryptoBackend, contentenc.DefaultIVBits, args.hkdf, args.forcedecode)
+	cCore := cryptocore.New(masterkey, cryptoBackend, contentenc.DefaultIVBits, args.hkdf, args.trezorkeyname, args.forcedecode)
 	cEnc := contentenc.New(cCore, contentenc.DefaultBS, args.forcedecode)
 	nameTransform := nametransform.New(cCore.EMECipher, frontendArgs.LongNames, args.raw64)
 	// After the crypto backend is initialized,

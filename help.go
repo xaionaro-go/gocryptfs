@@ -18,6 +18,7 @@ func helpShort() {
 	fmt.Printf(`
 Common Options (use -hh to show all):
   -aessiv            Use AES-SIV encryption (with -init)
+  -trezor            Use AES encryption through hardware crypto device "Trezor" (with -init)
   -allow_other       Allow other users to access the mount
   -config            Custom path to config file
   -ctlsock           Create control socket at location

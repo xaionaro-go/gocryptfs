@@ -290,10 +290,13 @@ func (be *ContentEnc) doEncryptBlock(plaintext []byte, blockNo uint64, fileID []
 	cBlock = cBlock[0:len(nonce)]
 	// Encrypt plaintext and append to nonce
 	ciphertext := be.cryptoCore.AEADCipher.Seal(cBlock, nonce, plaintext, aData)
+	if be.cryptoCore.AEADBackend == cryptocore.BackendAESTrezor {
+		return ciphertext
+	}
 	overhead := int(be.cipherBS - be.plainBS)
-	if len(plaintext)+overhead != len(ciphertext) {
-		log.Panicf("unexpected ciphertext length: plaintext=%d, overhead=%d, ciphertext=%d",
-			len(plaintext), overhead, len(ciphertext))
+	if (len(plaintext)+overhead != len(ciphertext) && be.cryptoCore.AEADBackend != cryptocore.BackendAESTrezor) || (len(plaintext)+overhead < len(ciphertext)) {
+		log.Panicf("unexpected ciphertext length: plaintext=%d, overhead=%d, ciphertext=%d, cipherBS=%d, plainBS=%d, IVLen=%d",
+			len(plaintext), overhead, len(ciphertext), be.cipherBS, be.plainBS, be.cryptoCore.IVLen)
 	}
 	return ciphertext
 }

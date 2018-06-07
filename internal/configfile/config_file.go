@@ -40,6 +40,8 @@ type ConfFile struct {
 	ScryptObject ScryptKDF
 	// Version is the On-Disk-Format version this filesystem uses
 	Version uint16
+	// TrezorKeyname is a string that is passed to Trezor as a key name
+	TrezorKeyname string
 	// FeatureFlags is a list of feature flags this filesystem has enabled.
 	// If gocryptfs encounters a feature flag it does not support, it will refuse
 	// mounting. This mechanism is analogous to the ext4 feature flags that are
@@ -67,7 +69,7 @@ func randBytesDevRandom(n int) []byte {
 // CreateConfFile - create a new config with a random key encrypted with
 // "password" and write it to "filename".
 // Uses scrypt with cost parameter logN.
-func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, devrandom bool) error {
+func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, trezor bool, trezorKeyname string, devrandom bool) error {
 	var cf ConfFile
 	cf.filename = filename
 	cf.Creator = creator
@@ -86,6 +88,10 @@ func CreateConfFile(filename string, password []byte, plaintextNames bool, logN 
 	}
 	if aessiv {
 		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagAESSIV])
+	}
+	if trezor {
+		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezor])
+		cf.TrezorKeyname = trezorKeyname
 	}
 	{
 		// Generate new random master key
@@ -254,7 +260,7 @@ func getKeyEncrypter(scryptHash []byte, useHKDF bool) *contentenc.ContentEnc {
 	if useHKDF {
 		IVLen = contentenc.DefaultIVBits
 	}
-	cc := cryptocore.New(scryptHash, cryptocore.BackendGoGCM, IVLen, useHKDF, false)
+	cc := cryptocore.New(scryptHash, cryptocore.BackendGoGCM, IVLen, useHKDF, "", false)
 	ce := contentenc.New(cc, 4096, false)
 	return ce
 }

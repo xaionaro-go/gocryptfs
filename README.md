@@ -150,10 +150,28 @@ LS:    1.75
 RM:    4.42
 ```
 
+Secure hardware encryption
+--------------------------
+
+gocryptfs supports openhardware cryptographic device
+[Trezor One](https://github.com/trezor/trezor-mcu)
+
+	$ mkdir cipher plain
+	$ ./gocryptfs -trezor -trezor_keyname someKeyNameHere -init cipher
+	$ ./gocryptfs cipher plain
+
+Notes:
+ * ATM, Trezor devices support implementation could be very slow.
+ * ATM, the only supported Trezor device is "Trezor One"
+ * There was no security audit of the code quality (related to the trezor
+   devices support)
+ * Works only on small files, ATM
+
 Changelog
 ---------
 
 vNEXT, in progress
+* Add `-trezor` functionality
 * Add `-masterkey=stdin` functionality
   ([#218](https://github.com/rfjakob/gocryptfs/issues/218))
 * Support extended attributes (xattr) in forward mode
