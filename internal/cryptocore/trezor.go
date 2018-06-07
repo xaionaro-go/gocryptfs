@@ -159,7 +159,6 @@ func (cipher trezorCipher) Seal(dst, nonce, plaintext, additionalData []byte) []
 	cipher.trezor.CheckTrezorConnection()
 	bsLen := []byte{byte(len(plaintext) & 0xff00 >> 8), byte(len(plaintext) & 0x00ff)}
 	result, _ := cipher.trezor.CipherKeyValue(true, cipher.keyName, append(append(additionalData[:authTagLen], bsLen...), plaintext...), nonce, false, true)
-	log.Print(len(dst), len(result), authTagLen, len(additionalData))
 	dst = append(dst, result...)
 	return dst
 }
@@ -176,7 +175,6 @@ func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) (
 	}
 
 	result, msgType := cipher.trezor.CipherKeyValue(false, cipher.keyName, []byte(hexValue), nonce, false, true)
-	log.Print(len(ciphertext), len(result), authTagLen, len(additionalData))
 
 	// extract additional data
 	additionalDataExtracted := result[:authTagLen]
