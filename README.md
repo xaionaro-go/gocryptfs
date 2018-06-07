@@ -167,7 +167,6 @@ Notes:
    computers you have to use flags `-trezor_encrypt_files`.
  * If you use flag `-trezor_encrypt_files` then on reading a file it's
    required a confirmation per every 512 bytes.
- * ATM, Trezor devices support implementation could be very slow.
  * ATM, the only supported Trezor device is "Trezor One"
  * There was no security audit of the code quality (related to the trezor
    devices support)
