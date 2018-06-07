@@ -190,7 +190,7 @@ func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) (
 		return dst, fmt.Errorf("trezor: %v", string(result))
 	}
 	if string(additionalData[:authTagLen]) != string(additionalDataExtracted) {
-		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v", additionalData[:authTagLen], additionalDataExtracted, string(result))
+		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v: %v", additionalData[:authTagLen], additionalDataExtracted, string(result))
 	}
 	dst = append(dst, result[:(bsLen[0]<<8|bsLen[1])]...)
 	return dst, nil
