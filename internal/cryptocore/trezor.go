@@ -87,6 +87,8 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 
 		trezor.pinentry.SetPrompt("PIN")
 		trezor.pinentry.SetDesc("")
+		trezor.pinentry.SetOK("Confirm")
+		trezor.pinentry.SetCancel("Cancel")
 		pin, err := trezor.pinentry.GetPin()
 		if err != nil {
 			log.Print("Error", err)
@@ -101,6 +103,8 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 
 		trezor.pinentry.SetPrompt("Passphrase")
 		trezor.pinentry.SetDesc("")
+		trezor.pinentry.SetOK("Confirm")
+		trezor.pinentry.SetCancel("Cancel")
 		passphrase, err := trezor.pinentry.GetPin()
 		if err != nil {
 			log.Print("Error", err)
@@ -111,6 +115,8 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 
 		trezor.pinentry.SetPrompt("Word")
 		trezor.pinentry.SetDesc("")
+		trezor.pinentry.SetOK("OK")
+		trezor.pinentry.SetCancel("Cancel")
 		word, err := trezor.pinentry.GetPin()
 		if err != nil {
 			log.Print("Error", err)
