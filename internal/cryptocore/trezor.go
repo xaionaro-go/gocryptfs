@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"syscall"
+	"time"
 
 	"github.com/conejoninja/tesoro"
 	"github.com/conejoninja/tesoro/pb/messages"
 	"github.com/conejoninja/tesoro/transport"
 	"github.com/xaionaro-go/pinentry"
 	"github.com/zserge/hid"
+
+	"github.com/rfjakob/gocryptfs/internal/exitcodes"
 )
 
 const (
@@ -71,7 +75,9 @@ func (trezor *trezor) Reconnect() {
 			shouldContinue := trezor.pinentry.Confirm()
 			if !shouldContinue {
 				log.Print("Cannot continue without Trezor devices.")
-				os.Exit(0)
+				syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+				time.Sleep(time.Second * 5) // Waiting to interrupt signal to get things done
+				os.Exit(exitcodes.SigInt)   // Just in case
 			}
 		} else if !trezor.Ping() {
 			log.Panic("An unexpected behaviour of the trezor device.")
