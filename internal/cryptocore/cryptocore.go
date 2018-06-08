@@ -232,7 +232,7 @@ func (cc CryptoCore) trezorGetDecryptedMasterKey() []byte {
 
 	hexValue := hex.EncodeToString(cc.trezorEncryptedMasterKey)
 	if len(hexValue)%2 != 0 {
-		log.Panic(len(hexValue)%2 != 0)
+		log.Panic("len(hexValue)%2 != 0")
 	}
 	for len(hexValue)%32 != 0 {
 		hexValue += "00"
