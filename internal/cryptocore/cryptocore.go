@@ -95,7 +95,7 @@ func New(key []byte, aeadType AEADTypeEnum, IVBitLen int, useHKDF bool, trezorEn
 		forceDecode:            forceDecode,
 		trezorKeyname:          trezorKeyname,
 		trezorEncryptMasterkey: trezorEncryptMasterkey,
-		mutex:                  &sync.Mutex{},
+		mutex: &sync.Mutex{},
 	}
 
 	// if it's a Trezor used than we prefer to initialize ciphers lazely to hold
@@ -133,7 +133,7 @@ func (cc CryptoCore) AreCiphersInitialized() bool {
 }
 
 func (cc *CryptoCore) Lock() {
-	if !cc.trezorEncryptMasterkey {	// locking is required only if trezorEncryptMasterkey == true (see function "New()")
+	if !cc.trezorEncryptMasterkey { // locking is required only if trezorEncryptMasterkey == true (see function "New()")
 		return
 	}
 	cc.mutex.Lock()
