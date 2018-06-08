@@ -20,9 +20,11 @@ import (
 type argContainer struct {
 	debug, init, zerokey, fusedebug, openssl, passwd, fg, version,
 	plaintextnames, quiet, nosyslog, wpanic,
-	longnames, allow_other, ro, reverse, aessiv, trezorencryptfiles, trezorencryptmasterkey, nonempty, raw64,
+	longnames, allow_other, reverse, aessiv, trezorencryptfiles, trezorencryptmasterkey, nonempty, raw64,
 	noprealloc, speed, hkdf, serialize_reads, forcedecode, hh, info,
 	sharedstorage, devrandom, fsck bool
+	// Mount options with opposites
+	dev, nodev, suid, nosuid, exec, noexec, rw, ro bool
 	masterkey, mountpoint, cipherdir, cpuprofile, extpass, trezorkeyname,
 	memprofile, ko, passfile, ctlsock, fsname, force_owner, trace string
 	// Configuration file name override
@@ -42,16 +44,16 @@ var flagSet *flag.FlagSet
 // prefixOArgs transform options passed via "-o foo,bar" into regular options
 // like "-foo -bar" and prefixes them to the command line.
 // Testcases in TestPrefixOArgs().
-func prefixOArgs(osArgs []string) []string {
+func prefixOArgs(osArgs []string) ([]string, error) {
 	// Need at least 3, example: gocryptfs -o    foo,bar
 	//                               ^ 0    ^ 1    ^ 2
 	if len(osArgs) < 3 {
-		return osArgs
+		return osArgs, nil
 	}
 	// Passing "--" disables "-o" parsing. Ignore element 0 (program name).
 	for _, v := range osArgs[1:] {
 		if v == "--" {
-			return osArgs
+			return osArgs, nil
 		}
 	}
 	// Find and extract "-o foo,bar"
@@ -60,8 +62,7 @@ func prefixOArgs(osArgs []string) []string {
 		if osArgs[i] == "-o" {
 			// Last argument?
 			if i+1 >= len(osArgs) {
-				tlog.Fatal.Printf("The \"-o\" option requires an argument")
-				os.Exit(exitcodes.Usage)
+				return nil, fmt.Errorf("The \"-o\" option requires an argument")
 			}
 			oOpts = strings.Split(osArgs[i+1], ",")
 			// Skip over the arguments to "-o"
@@ -87,18 +88,22 @@ func prefixOArgs(osArgs []string) []string {
 	}
 	// Add other arguments
 	newArgs = append(newArgs, otherArgs...)
-	return newArgs
+	return newArgs, nil
 }
 
 // parseCliOpts - parse command line options (i.e. arguments that start with "-")
 func parseCliOpts() (args argContainer) {
-	os.Args = prefixOArgs(os.Args)
-
 	var err error
 	var opensslAuto string
 
+	os.Args, err = prefixOArgs(os.Args)
+	if err != nil {
+		tlog.Fatal.Println(err)
+		os.Exit(exitcodes.Usage)
+	}
+
 	flagSet = flag.NewFlagSet(tlog.ProgramName, flag.ContinueOnError)
-	flagSet.Usage = helpShort
+	flagSet.Usage = func() {}
 	flagSet.BoolVar(&args.debug, "d", false, "")
 	flagSet.BoolVar(&args.debug, "debug", false, "Enable debug output")
 	flagSet.BoolVar(&args.fusedebug, "fusedebug", false, "Enable fuse library debug output")
@@ -118,7 +123,6 @@ func parseCliOpts() (args argContainer) {
 	flagSet.BoolVar(&args.longnames, "longnames", true, "Store names longer than 176 bytes in extra files")
 	flagSet.BoolVar(&args.allow_other, "allow_other", false, "Allow other users to access the filesystem. "+
 		"Only works if user_allow_other is set in /etc/fuse.conf.")
-	flagSet.BoolVar(&args.ro, "ro", false, "Mount the filesystem read-only")
 	flagSet.BoolVar(&args.reverse, "reverse", false, "Reverse mode")
 	flagSet.BoolVar(&args.aessiv, "aessiv", false, "AES-SIV encryption")
 	flagSet.BoolVar(&args.trezorencryptfiles, "trezor_encrypt_files", false, `Encrypt files through hardware crypto device "Trezor" using AES (useful if there're compromized machines).`)
@@ -136,6 +140,17 @@ func parseCliOpts() (args argContainer) {
 	flagSet.BoolVar(&args.sharedstorage, "sharedstorage", false, "Make concurrent access to a shared CIPHERDIR safer")
 	flagSet.BoolVar(&args.devrandom, "devrandom", false, "Use /dev/random for generating master key")
 	flagSet.BoolVar(&args.fsck, "fsck", false, "Run a filesystem check on CIPHERDIR")
+
+	// Mount options with opposites
+	flagSet.BoolVar(&args.dev, "dev", false, "Allow device files")
+	flagSet.BoolVar(&args.nodev, "nodev", false, "Deny device files")
+	flagSet.BoolVar(&args.suid, "suid", false, "Allow suid binaries")
+	flagSet.BoolVar(&args.nosuid, "nosuid", false, "Deny suid binaries")
+	flagSet.BoolVar(&args.exec, "exec", false, "Allow executables")
+	flagSet.BoolVar(&args.noexec, "noexec", false, "Deny executables")
+	flagSet.BoolVar(&args.rw, "rw", false, "Mount the filesystem read-write")
+	flagSet.BoolVar(&args.ro, "ro", false, "Mount the filesystem read-only")
+
 	flagSet.StringVar(&args.masterkey, "masterkey", "", "Mount with explicit master key")
 	flagSet.StringVar(&args.cpuprofile, "cpuprofile", "", "Write cpu profile to specified file")
 	flagSet.StringVar(&args.memprofile, "memprofile", "", "Write memory profile to specified file")
@@ -152,22 +167,16 @@ func parseCliOpts() (args argContainer) {
 		"successful mount - used internally for daemonization")
 	flagSet.IntVar(&args.scryptn, "scryptn", configfile.ScryptDefaultLogN, "scrypt cost parameter logN. Possible values: 10-28. "+
 		"A lower value speeds up mounting and reduces its memory needs, but makes the password susceptible to brute-force attacks")
-	// Ignored otions
-	var dummyBool bool
-	ignoreText := "(ignored for compatibility)"
-	flagSet.BoolVar(&dummyBool, "rw", false, ignoreText)
-	flagSet.BoolVar(&dummyBool, "nosuid", false, ignoreText)
-	flagSet.BoolVar(&dummyBool, "nodev", false, ignoreText)
 	var dummyString string
 	flagSet.StringVar(&dummyString, "o", "", "For compatibility with mount(1), options can be also passed as a comma-separated list to -o on the end.")
 	// Actual parsing
 	err = flagSet.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
+		helpShort()
 		os.Exit(0)
 	}
 	if err != nil {
-		tlog.Warn.Printf("You passed: %s", prettyArgs())
-		tlog.Fatal.Printf("%v", err)
+		tlog.Fatal.Printf("Invalid command line: %s. Try '%s -help'.", prettyArgs(), tlog.ProgramName)
 		os.Exit(exitcodes.Usage)
 	}
 	// "-openssl" needs some post-processing
@@ -233,7 +242,7 @@ func parseCliOpts() (args argContainer) {
 
 // prettyArgs pretty-prints the command-line arguments.
 func prettyArgs() string {
-	pa := fmt.Sprintf("%q", os.Args[1:])
+	pa := fmt.Sprintf("%v", os.Args)
 	// Get rid of "[" and "]"
 	pa = pa[1 : len(pa)-1]
 	return pa
