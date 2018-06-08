@@ -24,6 +24,7 @@ const (
 type trezor struct {
 	tesoro.Client
 	pinentry pinentry.PinentryClient
+	hid.Device
 }
 
 func NewTrezor() *trezor {
@@ -56,6 +57,7 @@ func (trezor *trezor) Reconnect() {
 				var t transport.TransportHID
 				t.SetDevice(device)
 				trezor.Client.SetTransport(&t)
+				trezor.Device = device
 				success = true
 				return
 			}
@@ -124,7 +126,13 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 }
 
 func (trezor *trezor) Ping() bool {
-	str, _ := trezor.call(trezor.Client.Ping("gocryptfs", false, false, false))
+	if trezor.Device == nil {
+		return false
+	}
+	if _, err := trezor.Device.HIDReport(); err != nil {
+		return false
+	}
+	str, _ := trezor.Client.Call(trezor.Client.Ping("gocryptfs", false, false, false))
 	return str == "gocryptfs"
 }
 
