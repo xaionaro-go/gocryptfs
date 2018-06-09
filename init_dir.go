@@ -77,7 +77,7 @@ func initDir(args *argContainer) {
 			password = readpassword.Twice(args.extpass)
 		}
 		readpassword.CheckTrailingGarbage()
-		err = configfile.CreateConfFile(args.config, password, args.plaintextnames, args.scryptn, creator, args.aessiv, args.trezorencryptmasterkey, args.trezorencryptfiles, args.trezorkeyname, args.devrandom)
+		err = configfile.CreateConfFile(args.config, password, args.plaintextnames, args.scryptn, creator, args.aessiv, args.trezorencryptmasterkey, args.trezorkeyname, args.devrandom)
 		if err != nil {
 			tlog.Fatal.Println(err)
 			os.Exit(exitcodes.WriteConf)

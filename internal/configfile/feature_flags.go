@@ -19,8 +19,6 @@ const (
 	FlagAESSIV
 	// FlagTrezorEncrypEncrypttMasterkey additionally encrypt master key using "Trezor"
 	FlagTrezorEncryptMasterkey
-	// FlagTrezorEncryptFiles selects the hardware AES crypto backend (through "Trezor")
-	FlagTrezorEncryptFiles
 	// FlagRaw64 enables raw (unpadded) base64 encoding for file names
 	FlagRaw64
 	// FlagHKDF enables HKDF-derived keys for use with GCM, EME and SIV
@@ -39,7 +37,6 @@ var knownFlags = map[flagIota]string{
 	FlagGCMIV128:               "GCMIV128",
 	FlagLongNames:              "LongNames",
 	FlagAESSIV:                 "AESSIV",
-	FlagTrezorEncryptFiles:     "TrezorEncryptFiles",
 	FlagTrezorEncryptMasterkey: "TrezorEncryptMasterkey",
 	FlagRaw64:                  "Raw64",
 	FlagHKDF:                   "HKDF",

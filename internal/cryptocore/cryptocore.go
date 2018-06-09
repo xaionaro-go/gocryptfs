@@ -214,11 +214,6 @@ func (cc *CryptoCore) initCiphers(key []byte) {
 		for i := range key64 {
 			key64[i] = 0
 		}
-	} else if cc.AEADBackend == BackendAESTrezor {
-		if cc.trezor == nil {
-			cc.trezor = NewTrezor()
-		}
-		aeadCipher = cc.trezor.NewAEADCipher(cc.trezorKeyname)
 	} else {
 		log.Panic("unknown backend cipher")
 	}

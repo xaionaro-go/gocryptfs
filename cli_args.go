@@ -20,7 +20,7 @@ import (
 type argContainer struct {
 	debug, init, zerokey, fusedebug, openssl, passwd, fg, version,
 	plaintextnames, quiet, nosyslog, wpanic,
-	longnames, allow_other, reverse, aessiv, trezorencryptfiles, trezorencryptmasterkey, nonempty, raw64,
+	longnames, allow_other, reverse, aessiv, trezorencryptmasterkey, nonempty, raw64,
 	noprealloc, speed, hkdf, serialize_reads, forcedecode, hh, info,
 	sharedstorage, devrandom, fsck bool
 	// Mount options with opposites
@@ -125,7 +125,6 @@ func parseCliOpts() (args argContainer) {
 		"Only works if user_allow_other is set in /etc/fuse.conf.")
 	flagSet.BoolVar(&args.reverse, "reverse", false, "Reverse mode")
 	flagSet.BoolVar(&args.aessiv, "aessiv", false, "AES-SIV encryption")
-	flagSet.BoolVar(&args.trezorencryptfiles, "trezor_encrypt_files", false, `Encrypt files through hardware crypto device "Trezor" using AES (useful if there're compromized machines).`)
 	flagSet.BoolVar(&args.trezorencryptmasterkey, "trezor_encrypt_masterkey", false, `Encrypt master key through hardware crypto device "Trezor" using AES.`)
 	flagSet.BoolVar(&args.nonempty, "nonempty", false, "Allow mounting over non-empty directories")
 	flagSet.BoolVar(&args.raw64, "raw64", true, "Use unpadded base64 for file names")
@@ -199,10 +198,6 @@ func parseCliOpts() (args argContainer) {
 			tlog.Fatal.Printf("The -forcedecode and -aessiv flags are incompatible because they use different crypto libs (openssl vs native Go)")
 			os.Exit(exitcodes.Usage)
 		}
-		if args.trezorencryptfiles == true {
-			tlog.Fatal.Printf("The -forcedecode and -trezor_encryopt_files flags are incompatible")
-			os.Exit(exitcodes.Usage)
-		}
 		if args.reverse == true {
 			tlog.Fatal.Printf("The reverse mode and the -forcedecode option are not compatible")
 			os.Exit(exitcodes.Usage)
@@ -218,16 +213,6 @@ func parseCliOpts() (args argContainer) {
 		args.ro = true
 		args.allow_other = false
 		args.ko = "noexec"
-	}
-	if args.trezorencryptfiles == true {
-		if args.aessiv == true {
-			tlog.Fatal.Printf("The -trezor_encrypt_files and -aessiv flags are not compatible")
-			os.Exit(exitcodes.Usage)
-		}
-		if args.openssl == true {
-			tlog.Fatal.Printf("The -trezor_encrypt_files and -openssl flags are not compatible")
-			os.Exit(exitcodes.Usage)
-		}
 	}
 	// '-passfile FILE' is a shortcut for -extpass='/bin/cat -- FILE'
 	if args.passfile != "" {

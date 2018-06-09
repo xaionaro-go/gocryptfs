@@ -1,9 +1,6 @@
 package cryptocore
 
 import (
-	"crypto/cipher"
-	"encoding/hex"
-	"fmt"
 	"log"
 	"os"
 	"syscall"
@@ -19,9 +16,6 @@ import (
 )
 
 const (
-	authTagLen  = 14
-	bsLenTagLen = 2
-
 	TrezorPassword = "trezor"
 )
 
@@ -43,13 +37,6 @@ func NewTrezor() *trezor {
 type trezorCipher struct {
 	*trezor
 	keyName string
-}
-
-func (trezor *trezor) NewAEADCipher(keyName string) cipher.AEAD {
-	return trezorCipher{
-		trezor:  trezor,
-		keyName: keyName,
-	}
 }
 
 func (trezor *trezor) Reconnect() {
@@ -129,9 +116,6 @@ func (trezor *trezor) call(msg []byte) (string, uint16) {
 		}
 		result, msgType = trezor.call(trezor.Client.WordAck(string(word)))
 
-		//case messages.MessageType_MessageType_CipheredKeyValue:
-		//log.Panic("Not implemented, yet")
-
 	}
 
 	return result, msgType
@@ -162,50 +146,3 @@ func (trezor *trezor) CipherKeyValue(isToEncrypt bool, keyName string, data, iv 
 	return []byte(result), messages.MessageType(msgType)
 }
 
-func (cipher trezorCipher) NonceSize() int {
-	return 16
-}
-
-func (cipher trezorCipher) Overhead() int {
-	return 0
-}
-
-func (cipher trezorCipher) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
-	cipher.trezor.CheckTrezorConnection()
-	bsLen := []byte{byte(len(plaintext) & 0xff00 >> 8), byte(len(plaintext) & 0x00ff)}
-	result, _ := cipher.trezor.CipherKeyValue(true, cipher.keyName, append(append(additionalData[:authTagLen], bsLen...), plaintext...), nonce, false, true)
-	dst = append(dst, result...)
-	return dst
-}
-
-func (cipher trezorCipher) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
-	cipher.trezor.CheckTrezorConnection()
-
-	hexValue := hex.EncodeToString(ciphertext)
-	if len(hexValue)%2 != 0 {
-		log.Panic(len(hexValue)%2 != 0)
-	}
-	for len(hexValue)%32 != 0 {
-		hexValue += "00"
-	}
-
-	result, msgType := cipher.trezor.CipherKeyValue(false, cipher.keyName, []byte(hexValue), nonce, false, true)
-
-	if msgType == messages.MessageType_MessageType_Failure {
-		return dst, fmt.Errorf("trezor: %v", string(result))
-	}
-
-	// extract additional data
-	additionalDataExtracted := result[:authTagLen]
-	result = result[authTagLen:]
-
-	// extract bslen
-	bsLen := result[:bsLenTagLen]
-	result = result[bsLenTagLen:]
-
-	if string(additionalData[:authTagLen]) != string(additionalDataExtracted) {
-		return dst, fmt.Errorf("trezor: cannot decrypt (wrong trezor or passphrase?): %v != %v: %v", additionalData[:authTagLen], additionalDataExtracted, string(result))
-	}
-	dst = append(dst, result[:(bsLen[0]<<8|bsLen[1])]...)
-	return dst, nil
-}

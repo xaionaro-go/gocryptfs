@@ -70,7 +70,7 @@ func randBytesDevRandom(n int) []byte {
 // CreateConfFile - create a new config with a random key encrypted with
 // "password" and write it to "filename".
 // Uses scrypt with cost parameter logN.
-func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, trezorEncryptMasterkey, trezorEncryptFiles bool, trezorKeyname string, devrandom bool) error {
+func CreateConfFile(filename string, password []byte, plaintextNames bool, logN int, creator string, aessiv bool, trezorEncryptMasterkey bool, trezorKeyname string, devrandom bool) error {
 	var cf ConfFile
 	cf.filename = filename
 	cf.Creator = creator
@@ -90,13 +90,8 @@ func CreateConfFile(filename string, password []byte, plaintextNames bool, logN 
 	if aessiv {
 		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagAESSIV])
 	}
-	if trezorEncryptFiles || trezorEncryptMasterkey {
-		cf.TrezorKeyname = trezorKeyname
-	}
-	if trezorEncryptFiles {
-		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezorEncryptFiles])
-	}
 	if trezorEncryptMasterkey {
+		cf.TrezorKeyname = trezorKeyname
 		cf.FeatureFlags = append(cf.FeatureFlags, knownFlags[FlagTrezorEncryptMasterkey])
 	}
 	{

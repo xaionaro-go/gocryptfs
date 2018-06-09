@@ -182,9 +182,6 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 	if args.aessiv {
 		cryptoBackend = cryptocore.BackendAESSIV
 	}
-	if args.trezorencryptfiles {
-		cryptoBackend = cryptocore.BackendAESTrezor
-	}
 	// forceOwner implies allow_other, as documented.
 	// Set this early, so args.allow_other can be relied on below this point.
 	if args._forceOwner != nil {
@@ -209,10 +206,7 @@ func initFuseFrontend(args *argContainer) (pfs pathfs.FileSystem, wipeKeys func(
 		args.raw64 = confFile.IsFeatureFlagSet(configfile.FlagRaw64)
 		args.hkdf = confFile.IsFeatureFlagSet(configfile.FlagHKDF)
 		args.trezorkeyname = confFile.TrezorKeyname
-		if confFile.IsFeatureFlagSet(configfile.FlagTrezorEncryptFiles) {
-			cryptoBackend = cryptocore.BackendAESTrezor
-			plaintextBS = 512
-		} else if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
+		if confFile.IsFeatureFlagSet(configfile.FlagAESSIV) {
 			cryptoBackend = cryptocore.BackendAESSIV
 		} else if args.reverse {
 			tlog.Fatal.Printf("AES-SIV is required by reverse mode, but not enabled in the config file")
